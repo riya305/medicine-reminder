@@ -11,9 +11,11 @@ when a dose is due.
   like "after breakfast") into concrete daily alert times, plus a short benefits/precautions
   blurb for the medicine. Saves one row per (parent phone, medicine, alert time) to SQLite.
 - **Agent 2 — Background Alarm Agent** ([alarm_agent.py](alarm_agent.py)): a daemon thread that
-  wakes up every 60 seconds, checks the database for any schedule matching the current clock
-  time, and — if found — calls Claude to generate the reminder text and sends it via the Twilio
-  WhatsApp API ([messaging.py](messaging.py)).
+  wakes up every 60 seconds and checks the database for any schedule matching the current clock
+  time. If found, it fills the fixed reminder template with that row's already-known values
+  (medicine, dosage, timing, benefits, precautions) — no LLM call needed here, since everything
+  was already decided by Agent 1 at intake time — and sends it via the Twilio WhatsApp API
+  ([messaging.py](messaging.py)).
 - **Storage** ([db.py](db.py)): a single SQLite file (`reminders.db`, created on first run).
 
 ## Setup
