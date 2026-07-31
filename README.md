@@ -14,10 +14,10 @@ needing the parent to use an app.
 
 ```mermaid
 flowchart LR
-    CLI["CLI: add prescription"] -->|"OD after breakfast"| A1
+    CLI["CLI: typed text<br/>or prescription photo"] --> A1
     subgraph A1["Agent 1 — Intake"]
         direction TB
-        P["Claude: parse dosage shorthand<br/>+ generate benefits/precautions"]
+        P["Claude: read/parse dosage<br/>+ generate benefits/precautions"]
     end
     A1 -->|"structured JSON"| DB[("SQLite<br/>schedules")]
     DB <-->|"poll every 60s"| A2
@@ -30,10 +30,16 @@ flowchart LR
 ```
 
 - **Agent 1 — Intake Agent** ([intake_agent.py](intake_agent.py)): one Claude call per
-  prescription. Parses `OD`/`BD`/`TDS`/`QID`/`HS`/`SOS` and meal-relative phrasing
+  prescription, from either typed text or a photo of the prescription/medicine strip
+  (vision input). Parses `OD`/`BD`/`TDS`/`QID`/`HS`/`SOS` and meal-relative phrasing
   ("after breakfast", "before dinner") into concrete daily alert times, and generates a
-  short benefits/precautions blurb for the medicine — both in a single structured-output
-  call (`output_config.format`, JSON schema), so there's no brittle prompt-then-parse step.
+  short benefits/precautions blurb — all in a single structured-output call
+  (`output_config.format`, JSON schema), so there's no brittle prompt-then-parse step.
+  The image path extracts **every medicine on the page** (real prescriptions usually list
+  several), and has two safety behaviours: a `readable` flag so an illegible photo is
+  rejected rather than guessed at, and per-medicine skipping so one unreadable line doesn't
+  discard the rest. As-needed (`SOS`) medicines are reported as skipped rather than silently
+  dropped — they have no fixed time to remind about.
 - **Agent 2 — Background Alarm Agent** ([alarm_agent.py](alarm_agent.py)): a daemon thread
   polling the database every 60 seconds. When a schedule matches the current time, it fills
   a fixed message template with values already decided by Agent 1, and sends it via Twilio.
@@ -58,6 +64,13 @@ out of free text — no regex, no "hope the model formatted it right."
 
 **Idempotent by construction.** Each schedule row tracks `last_sent_date`; a slow tick or a
 process restart can never double-send a reminder for the same day.
+
+**Fail loudly, never silently.** In a medication app, a dropped medicine is worse than an
+error message. The image path was first built to extract a single medicine — testing it on a
+real pediatric prescription listing four drugs showed it silently keeping one and discarding
+three, which is exactly the kind of failure a user would never notice. It now extracts all of
+them, and anything it deliberately doesn't schedule (an as-needed dose, an illegible line) is
+surfaced in the output rather than quietly skipped.
 
 ## Setup
 
@@ -88,8 +101,11 @@ a demo.
 ## Usage
 
 ```bash
-# Add a prescription — Agent 1 parses the schedule
+# Add a prescription from typed text — Agent 1 parses the schedule
 .venv/bin/python main.py add +91XXXXXXXXXX "Paracetamol" "500mg" "OD after breakfast"
+
+# Add a prescription from a photo — Agent 1 reads and parses it (vision)
+.venv/bin/python main.py add-image +91XXXXXXXXXX ./prescription.jpg
 
 # List all schedules
 .venv/bin/python main.py list [+91XXXXXXXXXX]
@@ -125,12 +141,12 @@ Kripya dawa khakar mujhe bataiyye!
 
 ## Possible next steps
 
-- Evaluation harness — automated accuracy checks for Agent 1's dosage parsing and medicine-info generation
 - WhatsApp Content Template registration for production, business-initiated sends
-- Text-to-Speech layer
+- Evaluation harness — automated accuracy checks for Agent 1's dosage parsing and
+  medicine-info generation (text and image paths)
 - Multi-language support beyond Hinglish
+- Text-to-Speech layer for parents who find listening easier than reading
 - A lightweight caregiver dashboard (view/edit schedules without the CLI)
-- Photo-of-a-prescription intake via vision input, instead of typed dosage text
 
 ## License
 

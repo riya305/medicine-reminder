@@ -2,3 +2,9 @@
 .venv/
 __pycache__/
 reminders.db
+
+# Local test images -- prescriptions can contain patient names/health info
+*.png
+*.jpg
+*.jpeg
+*.webp

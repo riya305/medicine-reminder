@@ -2,6 +2,7 @@
 CLI entry point.
 
     python main.py add +919876543210 "Paracetamol" "500mg" "OD after breakfast"
+    python main.py add-image +919876543210 ./prescription.jpg
     python main.py list [+919876543210]
     python main.py run
 """
@@ -15,7 +16,22 @@ load_dotenv()
 
 import db
 from alarm_agent import AlarmAgent
-from intake_agent import add_prescription, UnschedulableDosage
+from intake_agent import (
+    add_prescription,
+    add_prescription_from_image,
+    UnreadablePrescription,
+    UnschedulableDosage,
+)
+
+
+def _print_result(result, parent_phone, medicine_name, dosage):
+    print(f"Scheduled {medicine_name} ({dosage}) for {parent_phone}:")
+    for entry in result["schedule"]:
+        print(f"  {entry['alert_time_display']} - {entry['timing_label']}")
+    if result["benefits"]:
+        print(f"  Benefits: {result['benefits']}")
+    if result["precautions"]:
+        print(f"  Precautions: {result['precautions']}")
 
 
 def cmd_add(args):
@@ -28,13 +44,28 @@ def cmd_add(args):
     except UnschedulableDosage as exc:
         print(f"Not scheduled: {exc}")
         sys.exit(1)
-    print(f"Scheduled {medicine_name} for {parent_phone}:")
-    for entry in result["schedule"]:
-        print(f"  {entry['alert_time_display']} - {entry['timing_label']}")
-    if result["benefits"]:
-        print(f"  Benefits: {result['benefits']}")
-    if result["precautions"]:
-        print(f"  Precautions: {result['precautions']}")
+    _print_result(result, parent_phone, medicine_name, dosage)
+
+
+def cmd_add_image(args):
+    if len(args) != 2:
+        print("Usage: python main.py add-image <parent_phone> <image_path>")
+        sys.exit(1)
+    parent_phone, image_path = args
+    try:
+        results = add_prescription_from_image(parent_phone, image_path)
+    except UnreadablePrescription as exc:
+        print(f"Could not read prescription image: {exc}")
+        sys.exit(1)
+    except UnschedulableDosage as exc:
+        print(f"Not scheduled: {exc}")
+        sys.exit(1)
+    print(f"Found {len(results)} medicine(s) for {parent_phone}:")
+    for result in results:
+        if result["scheduled"]:
+            _print_result(result, parent_phone, result["medicine_name"], result["dosage"])
+        else:
+            print(f"Skipped {result['medicine_name']} ({result['dosage']}) - as-needed, no fixed schedule")
 
 
 def cmd_list(args):
@@ -66,7 +97,7 @@ def cmd_run(args):
         print("Stopped.")
 
 
-COMMANDS = {"add": cmd_add, "list": cmd_list, "run": cmd_run}
+COMMANDS = {"add": cmd_add, "add-image": cmd_add_image, "list": cmd_list, "run": cmd_run}
 
 
 def main():
