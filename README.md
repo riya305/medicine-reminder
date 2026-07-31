@@ -125,7 +125,8 @@ Kripya dawa khakar mujhe bataiyye!
 
 ## Possible next steps
 
-- Evaluation harness
+- Evaluation harness — automated accuracy checks for Agent 1's dosage parsing and medicine-info generation
+- WhatsApp Content Template registration for production, business-initiated sends
 - Text-to-Speech layer
 - Multi-language support beyond Hinglish
 - A lightweight caregiver dashboard (view/edit schedules without the CLI)
