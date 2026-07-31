@@ -125,7 +125,8 @@ Kripya dawa khakar mujhe bataiyye!
 
 ## Possible next steps
 
-- WhatsApp Content Template registration for production, business-initiated sends
+- Evaluation harness
+- Text-to-Speech layer
 - Multi-language support beyond Hinglish
 - A lightweight caregiver dashboard (view/edit schedules without the CLI)
 - Photo-of-a-prescription intake via vision input, instead of typed dosage text
